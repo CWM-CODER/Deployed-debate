@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: clash-of-minds
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/health
+    autoDeploy: true

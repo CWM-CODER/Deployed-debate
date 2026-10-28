@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clash of Minds — AI Debate Judge | CSES ML Exhibition</title>
+  <meta name="description" content="AI-powered live debate evaluation and evidence verification system. Two participants argue opposing sides; an AI judge evaluates every argument and declares a winner." />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+</head>
+<body>
+
+<!-- Connection offline banner -->
+<div id="connection-banner" class="connection-banner" role="alert" aria-live="assertive">
+  ⚠️ Backend connection lost — attempting to reconnect...
+</div>
+
+<!-- Confetti canvas (winner celebration) -->
+<canvas id="confetti-canvas" class="confetti-canvas" aria-hidden="true"></canvas>
+
+<!-- Main app -->
+<div id="app">
+
+  <!-- ══════════════════════════════════════════════
+       SETUP SCREEN
+  ══════════════════════════════════════════════ -->
+  <section id="setup-screen" class="screen active" aria-label="Match Setup">
+
+    <!-- Top bar -->
+    <header class="top-bar">
+      <div class="logo">
+        <div class="logo-icon" aria-hidden="true">⚡</div>
+        <div>
+          <div class="logo-text">Clash of Minds</div>
+          <div class="logo-sub">CSES ML Exhibition · NIT Warangal</div>
+        </div>
+      </div>
+      <div class="status-badge">
+        <span class="status-dot" id="server-status-dot" aria-label="Server status"></span>
+        <span id="server-status-text">Connecting...</span>
+      </div>
+    </header>
+
+    <!-- Hero -->
+    <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 40px 24px;">
+      <div class="setup-hero">
+        <h1>
+          <span class="word-clash">Clash</span> of <span class="word-minds">Minds</span>
+        </h1>
+        <p class="tagline">
+          AI-Powered Debate Judge &mdash;
+          <span>Claim-Level Evaluation</span> &middot;
+          <span>Internet Fact Verification</span> &middot;
+          <span>Live Scoring</span>
+        </p>
+      </div>
+
+      <!-- Setup card -->
+      <div class="setup-card" role="form" aria-label="Match setup form">
+        
+        <!-- Setup Tabs: Host vs Join -->
+        <div class="setup-tabs">
+          <button id="tab-host-btn" class="setup-tab active" type="button">
+            ⚔️ Host Debate (Host)
+          </button>
+          <button id="tab-join-btn" class="setup-tab" type="button">
+            🔗 Join Debate (2nd Laptop / Spectator)
+          </button>
+        </div>
+
+        <!-- TAB 1: HOST DEBATE -->
+        <div id="host-tab-panel">
+          <h2>⚔️ Configure Match</h2>
+
+          <!-- Reusing room code banner -->
+          <div id="reusing-room-banner" style="display:none; background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.35); border-radius:var(--radius-xs); padding:10px 14px; margin-bottom:16px; font-size:12px; color:var(--accent-cyan); display:flex; justify-content:space-between; align-items:center;">
+            <span>🔄 <strong>Reusing Room:</strong> <code id="reused-room-code-tag" style="background:rgba(0,0,0,0.3); padding:2px 6px; border-radius:3px;">------</code> (Laptop 2 will auto-join)</span>
+            <button id="cancel-room-reuse-btn" class="btn btn-xs" type="button" style="background:rgba(255,255,255,0.08); color:var(--text-secondary); border:1px solid var(--border);">
+              Use Fresh Room
+            </button>
+          </div>
+
+          <!-- Player names -->
+          <div class="setup-grid">
+            <div class="field-group p1-field">
+              <label for="p1-name">
+                Player 1 <span class="player-badge p1-badge">FOR</span>
+              </label>
+              <input
+                id="p1-name"
+                class="input-field"
+                type="text"
+                placeholder="Enter name..."
+                maxlength="40"
+                autocomplete="off"
+              />
+            </div>
+            <div class="field-group p2-field">
+              <label for="p2-name">
+                Player 2 <span class="player-badge p2-badge">AGAINST</span>
+              </label>
+              <input
+                id="p2-name"
+                class="input-field"
+                type="text"
+                placeholder="Enter name..."
+                maxlength="40"
+                autocomplete="off"
+              />
+            </div>
+
+            <!-- Topic -->
+            <div class="field-group topic-field">
+              <label for="topic-input">Debate Topic / Proposition</label>
+              <textarea
+                id="topic-input"
+                class="input-field"
+                placeholder="e.g. Artificial Intelligence will do more good than harm to society."
+                rows="2"
+                maxlength="300"
+              ></textarea>
+            </div>
+          </div>
+
+          <!-- Side assignment display -->
+          <div class="side-display">
+            <div class="side-card for-side">
+              <span class="side-icon">✅</span>
+              <div>
+                <div style="font-size:10px; opacity:0.7; text-transform:uppercase; letter-spacing:0.1em">Player 1</div>
+                <div>Arguing <strong>FOR</strong> the proposition</div>
+              </div>
+            </div>
+            <div class="side-card against-side">
+              <span class="side-icon">🚫</span>
+              <div>
+                <div style="font-size:10px; opacity:0.7; text-transform:uppercase; letter-spacing:0.1em">Player 2</div>
+                <div>Arguing <strong>AGAINST</strong> the proposition</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Rounds selector -->
+          <div class="rounds-row">
+            <label for="max-rounds">Number of Rounds:</label>
+            <select id="max-rounds" class="rounds-select">
+              <option value="2">2 rounds (Quick)</option>
+              <option value="4" selected>4 rounds (Standard)</option>
+              <option value="6">6 rounds (Extended)</option>
+            </select>
+            <span style="font-size:12px; color:var(--text-muted); margin-left:4px">per player</span>
+          </div>
+
+          <!-- Host Device Role -->
+          <div class="role-selector-row">
+            <label>This Device Mode:</label>
+            <div class="role-options">
+              <label class="role-radio-label">
+                <input type="radio" name="host-device-role" value="p1" checked />
+                <span>⚡ Player 1 Laptop (Player 2 joins on separate laptop)</span>
+              </label>
+              <label class="role-radio-label">
+                <input type="radio" name="host-device-role" value="both" />
+                <span>💻 Single Laptop (Both players share this laptop)</span>
+              </label>
+            </div>
+          </div>
+
+          <button id="start-match-btn" class="btn btn-primary" aria-label="Start the debate match">
+            <span class="btn-icon">⚡</span>
+            Start Debate
+          </button>
+        </div>
+
+        <!-- TAB 2: JOIN DEBATE (FOR 2ND LAPTOP / SPECTATOR) -->
+        <div id="join-tab-panel" style="display:none;">
+          <h2>🔗 Join Ongoing Debate</h2>
+          <p style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;">
+            Join a debate hosted on another laptop over the same Wi-Fi/Hotspot or Tunnel.
+          </p>
+          <div style="font-size:12px; color:var(--accent-amber); margin-bottom:14px; background:rgba(245,158,11,0.08); padding:8px 12px; border-radius:var(--radius-xs); border:1px solid rgba(245,158,11,0.2);">
+            💡 <strong>Laptop 2 Note:</strong> Make sure you opened this browser using Laptop 1's Wi-Fi address (e.g. <code>http://10.137.243.227:8000</code>), not <code>localhost</code>.
+          </div>
+
+          <!-- Auto-detected active match card -->
+          <div id="active-match-card" class="active-match-card" style="display:none;">
+            <div class="active-match-badge">🔥 LIVE MATCH DETECTED</div>
+            <div id="active-match-topic" class="active-match-topic">Loading...</div>
+            <div id="active-match-players" class="active-match-players"></div>
+            <div class="active-match-actions">
+              <button id="quick-join-p2-btn" class="btn btn-sm btn-p2" type="button">
+                👉 Join as Player 2 (AGAINST)
+              </button>
+              <button id="quick-join-spectator-btn" class="btn btn-sm btn-secondary" type="button">
+                📺 Join as Spectator (Projector)
+              </button>
+              <button id="quick-join-p1-btn" class="btn btn-sm btn-p1" type="button">
+                Join as Player 1 (FOR)
+              </button>
+            </div>
+          </div>
+
+          <!-- Manual join input -->
+          <div style="background:rgba(255,255,255,0.02); padding:16px; border-radius:var(--radius-sm); border:1px solid var(--border);">
+            <div class="field-group" style="margin-bottom:12px;">
+              <label for="join-match-id">Debate Room ID:</label>
+              <input
+                id="join-match-id"
+                class="input-field"
+                type="text"
+                placeholder="e.g. 7b3a4f8910cd"
+                autocomplete="off"
+              />
+            </div>
+            <div class="field-group" style="margin-bottom:16px;">
+              <label for="join-role-select">Select Your Role on this Laptop:</label>
+              <select id="join-role-select" class="rounds-select" style="width:100%; height:40px;">
+                <option value="p2" selected>Player 2 (AGAINST the proposition)</option>
+                <option value="p1">Player 1 (FOR the proposition)</option>
+                <option value="spectator">Spectator / Projector / Audience</option>
+                <option value="both">Both Players (Single Screen)</option>
+              </select>
+            </div>
+            <button id="manual-join-btn" class="btn btn-primary" type="button" style="width:100%;">
+              🚀 Join Debate Room
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       DEBATE SCREEN
+  ══════════════════════════════════════════════ -->
+  <section id="debate-screen" class="screen" aria-label="Live Debate">
+
+    <!-- Debate header bar -->
+    <header class="debate-header">
+      <!-- Player 1 mini-score -->
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div class="turn-avatar p1" id="p1-avatar-header" aria-hidden="true">P1</div>
+        <div>
+          <div id="p1-name-header" style="font-weight:700; color:var(--p1-color); font-size:13px;">Player 1</div>
+          <div id="p1-score-header" style="font-size:22px; font-weight:800; color:var(--p1-color); font-family:'Space Grotesk',sans-serif;">0.0</div>
+        </div>
+      </div>
+
+      <!-- Center: Topic + Round -->
+      <div class="topic-display">
+        <div class="topic-label">DEBATE TOPIC</div>
+        <div class="topic-text" id="header-topic">—</div>
+        <div style="margin-top:8px; display:flex; justify-content:center;">
+          <div class="round-indicator">
+            <div class="round-dots" id="round-dots" aria-label="Round progress"></div>
+            <span id="round-label" style="font-size:12px; color:var(--text-secondary);">Round 1</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Player 2 mini-score -->
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div>
+          <div id="p2-name-header" style="font-weight:700; color:var(--p2-color); font-size:13px; text-align:right;">Player 2</div>
+          <div id="p2-score-header" style="font-size:22px; font-weight:800; color:var(--p2-color); font-family:'Space Grotesk',sans-serif; text-align:right;">0.0</div>
+        </div>
+        <div class="turn-avatar p2" id="p2-avatar-header" aria-hidden="true">P2</div>
+      </div>
+
+      <!-- Operator controls & Room sharing -->
+      <div class="room-share-bar">
+        <span class="room-code-tag" id="room-code-badge" title="Debate Room ID">
+          Room: <strong id="room-id-text">------</strong>
+        </span>
+        <span class="device-role-tag" id="device-role-badge">Role: Player 1</span>
+        <button id="share-p2-btn" class="btn btn-xs btn-share" type="button" title="Copy join link for Player 2 laptop">
+          📋 P2 Invite Link
+        </button>
+        <button id="share-spectator-btn" class="btn btn-xs btn-share" type="button" title="Copy link for projector / audience">
+          📺 Projector Link
+        </button>
+        <button id="reset-btn" class="btn btn-reset" aria-label="Reset match" title="Operator: Reset match">
+          ↺ Reset
+        </button>
+      </div>
+    </header>
+
+    <!-- Main debate layout -->
+    <div class="debate-main">
+
+      <!-- ─ Left: Player 1 Panel ─ -->
+      <aside class="player-panel p1-panel" aria-label="Player 1 panel">
+        <div class="player-header">
+          <div class="player-name" id="p1-panel-name">Player 1</div>
+          <div class="player-side-tag">FOR the proposition</div>
+          <div class="total-score-display">
+            <div class="total-score-num" id="p1-total-score">0.0</div>
+            <div class="total-score-label">Total Score</div>
+          </div>
+        </div>
+
+        <!-- Score criteria bars -->
+        <div class="score-bars" aria-label="Player 1 scores">
+          <div class="score-bar-item">
+            <div class="score-bar-label">
+              <span>Rebuttal</span><span id="p1-rebuttal-val">—</span>
+            </div>
+            <div class="score-bar-track">
+              <div class="score-bar-fill" id="p1-rebuttal-bar" style="width:0%"></div>
+            </div>
+          </div>
+          <div class="score-bar-item">
+            <div class="score-bar-label">
+              <span>Reasoning</span><span id="p1-reasoning-val">—</span>
+            </div>
+            <div class="score-bar-track">
+              <div class="score-bar-fill" id="p1-reasoning-bar" style="width:0%"></div>
+            </div>
+          </div>
+          <div class="score-bar-item">
+            <div class="score-bar-label">
+              <span>Evidence</span><span id="p1-evidence-val">—</span>
+            </div>
+            <div class="score-bar-track">
+              <div class="score-bar-fill" id="p1-evidence-bar" style="width:0%"></div>
+            </div>
+          </div>
+          <div class="score-bar-item">
+            <div class="score-bar-label">
+              <span>Relevance</span><span id="p1-relevance-val">—</span>
+            </div>
+            <div class="score-bar-track">
+              <div class="score-bar-fill" id="p1-relevance-bar" style="width:0%"></div>
+            </div>
+          </div>
+          <div class="score-bar-item">
+            <div class="score-bar-label">
+              <span>Clarity</span><span id="p1-clarity-val">—</span>
+            </div>
+            <div class="score-bar-track">
+              <div class="score-bar-fill" id="p1-clarity-bar" style="width:0%"></div>
+            </div>
+          </div>
+          <div class="score-bar-item">
+            <div class="score-bar-label">
+              <span>Stance</span><span id="p1-stance-val">—</span>
+            </div>
+            <div class="score-bar-track">
+              <div class="score-bar-fill" id="p1-stance-bar" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Turn history -->
+        <div class="turn-history-title">Turn History</div>
+        <div class="turn-history" id="p1-turn-history" aria-label="Player 1 turn history"></div>
+      </aside>
+
+
+      <!-- ─ Center: Debate Arena ─ -->
+      <main class="debate-arena" aria-label="Debate arena">
+
+        <!-- Who's speaking now -->
+        <div class="turn-indicator" id="turn-indicator">
+          <div class="turn-avatar p1" id="current-avatar" aria-hidden="true">P1</div>
+          <div class="turn-info">
+            <div class="turn-player-name" id="current-player-name">Player 1</div>
+            <div class="turn-instruction" id="turn-instruction">Opening argument — FOR the proposition</div>
+          </div>
+          <!-- Timer -->
+          <div class="turn-timer" aria-label="Time remaining">
+            <div class="timer-ring">
+              <svg class="timer-svg" width="52" height="52" viewBox="0 0 52 52" aria-hidden="true">
+                <circle class="timer-track" cx="26" cy="26" r="22" fill="none" stroke-width="3"/>
+                <circle id="timer-progress-circle"
+                  class="timer-progress" cx="26" cy="26" r="22"
+                  fill="none" stroke-width="3"
+                  stroke-dasharray="138.2"
+                  stroke-dashoffset="0"/>
+              </svg>
+              <div class="timer-text" id="timer-display">—</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Debate transcript feed -->
+        <div class="debate-feed" id="debate-feed" aria-live="polite" aria-label="Debate transcript">
+          <div class="feed-empty" id="feed-empty">
+            <div class="empty-icon">🎙️</div>
+            <div>The debate will appear here as arguments are submitted.</div>
+            <div style="margin-top:8px; font-size:12px;">Player 1 (FOR) goes first.</div>
+          </div>
+        </div>
+
+        <!-- Argument input area -->
+        <div class="input-area" id="input-area" aria-label="Submit argument">
+
+          <!-- Turn waiting banner (shows when waiting for other device or in spectator mode) -->
+          <div id="turn-waiting-banner" class="turn-waiting-banner" style="display:none;">
+            <div class="waiting-pulse-dot"></div>
+            <div id="turn-waiting-text" class="turn-waiting-text">
+              Waiting for opponent's turn...
+            </div>
+          </div>
+
+          <!-- Voice transcript preview (shows before confirmation) -->
+          <div class="voice-transcript-preview" id="voice-preview">
+            <strong>🎙️ Voice Transcript — Review before submitting:</strong>
+            <span id="voice-preview-text"></span>
+          </div>
+
+          <textarea
+            id="argument-textarea"
+            class="argument-textarea"
+            placeholder="Type your argument here, or use the microphone to speak..."
+            aria-label="Argument text"
+            rows="3"
+          ></textarea>
+
+          <div class="input-toolbar">
+            <div class="input-left">
+              <!-- Voice input -->
+              <button
+                id="voice-btn"
+                class="btn btn-voice"
+                aria-label="Start voice input"
+                title="Hold to speak (Web Speech API)"
+              >
+                <span id="voice-btn-icon">🎙️</span>
+                <span id="voice-btn-text">Speak</span>
+              </button>
+
+              <!-- Voice confirm / cancel -->
+              <button
+                id="voice-confirm-btn"
+                class="btn"
+                style="display:none; background:rgba(16,185,129,0.15); color:var(--accent-green); border:1px solid rgba(16,185,129,0.25); border-radius:50px; padding:8px 16px; font-size:13px;"
+                aria-label="Confirm transcript and use as argument"
+              >
+                ✅ Use Transcript
+              </button>
+              <button
+                id="voice-cancel-btn"
+                class="btn"
+                style="display:none; background:rgba(239,68,68,0.10); color:var(--accent-red); border:1px solid rgba(239,68,68,0.25); border-radius:50px; padding:8px 14px; font-size:13px;"
+                aria-label="Discard transcript"
+              >
+                ✕ Discard
+              </button>
+
+              <span class="word-count" id="word-count" aria-live="polite">0 / 500 words</span>
+            </div>
+
+            <button id="submit-btn" class="btn btn-submit" aria-label="Submit argument for evaluation" disabled>
+              Submit Argument →
+            </button>
+          </div>
+        </div>
+      </main>
+
+
+      <!-- ─ Right: Analysis Panel ─ -->
+      <aside class="analysis-panel" aria-label="Live analysis panel">
+
+        <div>
+          <div class="panel-section-title">
+            📊 Last Turn Analysis
+          </div>
+          <div id="no-analysis-msg" style="font-size:12px; color:var(--text-muted); margin-top:4px;">
+            Analysis will appear after the first submission.
+          </div>
+        </div>
+
+        <!-- Criterion score breakdown -->
+        <div id="criterion-section" style="display:none;">
+          <div class="panel-section-title">📐 Score Breakdown</div>
+          <div class="criterion-list">
+            <div class="criterion-row">
+              <div class="criterion-top">
+                <span class="criterion-name">Counterargument/Rebuttal</span>
+                <span class="criterion-weight">20%</span>
+                <span class="criterion-value" id="cr-rebuttal">—</span>
+              </div>
+              <div class="criterion-bar-track">
+                <div class="criterion-bar-fill rebuttal" id="crb-rebuttal" style="width:0%"></div>
+              </div>
+            </div>
+            <div class="criterion-row">
+              <div class="criterion-top">
+                <span class="criterion-name">Logical Reasoning</span>
+                <span class="criterion-weight">20%</span>
+                <span class="criterion-value" id="cr-reasoning">—</span>
+              </div>
+              <div class="criterion-bar-track">
+                <div class="criterion-bar-fill reasoning" id="crb-reasoning" style="width:0%"></div>
+              </div>
+            </div>
+            <div class="criterion-row">
+              <div class="criterion-top">
+                <span class="criterion-name">Evidence Quality</span>
+                <span class="criterion-weight">20%</span>
+                <span class="criterion-value" id="cr-evidence">—</span>
+              </div>
+              <div class="criterion-bar-track">
+                <div class="criterion-bar-fill evidence" id="crb-evidence" style="width:0%"></div>
+              </div>
+            </div>
+            <div class="criterion-row">
+              <div class="criterion-top">
+                <span class="criterion-name">Topic Relevance</span>
+                <span class="criterion-weight">15%</span>
+                <span class="criterion-value" id="cr-relevance">—</span>
+              </div>
+              <div class="criterion-bar-track">
+                <div class="criterion-bar-fill relevance" id="crb-relevance" style="width:0%"></div>
+              </div>
+            </div>
+            <div class="criterion-row">
+              <div class="criterion-top">
+                <span class="criterion-name">Clarity</span>
+                <span class="criterion-weight">15%</span>
+                <span class="criterion-value" id="cr-clarity">—</span>
+              </div>
+              <div class="criterion-bar-track">
+                <div class="criterion-bar-fill clarity" id="crb-clarity" style="width:0%"></div>
+              </div>
+            </div>
+            <div class="criterion-row">
+              <div class="criterion-top">
+                <span class="criterion-name">Stance Consistency</span>
+                <span class="criterion-weight">10%</span>
+                <span class="criterion-value" id="cr-stance">—</span>
+              </div>
+              <div class="criterion-bar-track">
+                <div class="criterion-bar-fill stance" id="crb-stance" style="width:0%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Feedback -->
+        <div id="feedback-section" style="display:none;">
+          <div class="panel-section-title">💬 Judge Feedback</div>
+          <div class="feedback-box" id="feedback-text"></div>
+        </div>
+
+        <!-- Claim types found -->
+        <div id="claims-section" style="display:none;">
+          <div class="panel-section-title">🧩 Claims Identified</div>
+          <div class="claim-chips" id="claims-chips"></div>
+        </div>
+
+        <!-- Argument relations (NLI output) -->
+        <div id="relations-section" style="display:none;">
+          <div class="panel-section-title">🔗 Argument Relations (NLI)</div>
+          <div class="relation-list" id="relation-list"></div>
+        </div>
+
+        <!-- Fact-check results (RAG) -->
+        <div id="factcheck-section" style="display:none;">
+          <div class="panel-section-title">🔍 Fact-Check Results</div>
+          <div class="fact-check-list" id="fact-check-list"></div>
+        </div>
+
+        <!-- Fairness note -->
+        <div style="padding:12px; border-radius:var(--radius-sm); background:rgba(255,255,255,0.03); border:1px solid var(--border); font-size:11px; color:var(--text-muted); line-height:1.7;">
+          <strong style="color:var(--text-secondary);">AI Judge Principles:</strong><br/>
+          • Contradiction ≠ strong rebuttal (reasoning required)<br/>
+          • True facts alone ≠ strong argument<br/>
+          • Unverified ≠ false — marked insufficient evidence<br/>
+          • New evidence on repeated claim = NOT penalized
+        </div>
+
+      </aside>
+    </div><!-- .debate-main -->
+
+  </section><!-- #debate-screen -->
+
+
+  <!-- ══════════════════════════════════════════════
+       FINAL / WINNER SCREEN
+  ══════════════════════════════════════════════ -->
+  <section id="final-screen" class="screen" aria-label="Debate result">
+
+    <header class="top-bar">
+      <div class="logo">
+        <div class="logo-icon">⚡</div>
+        <div>
+          <div class="logo-text">Clash of Minds</div>
+          <div class="logo-sub">CSES ML Exhibition · NIT Warangal</div>
+        </div>
+      </div>
+    </header>
+
+    <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px 24px;">
+
+      <div class="winner-glow">
+        <div class="winner-label">🏆 Debate Winner</div>
+        <span class="winner-trophy" id="winner-trophy" aria-hidden="true">🏆</span>
+        <div class="winner-name" id="winner-name-display">—</div>
+        <div class="winner-side" id="winner-side-display">—</div>
+      </div>
+
+      <!-- Final scoreboard -->
+      <div class="final-scoreboard" aria-label="Final scores">
+        <!-- P1 card -->
+        <div class="final-score-card" id="p1-final-card">
+          <div class="player-name-final p1" id="p1-name-final">Player 1</div>
+          <div class="player-side-small">FOR the proposition</div>
+          <div class="final-total-score" id="p1-score-final" style="color:var(--p1-color);">0.0</div>
+          <div style="font-size:12px; color:var(--text-muted);">/ 100 pts</div>
+          <div class="crown-badge" id="p1-crown" style="display:none;">👑</div>
+        </div>
+        <!-- P2 card -->
+        <div class="final-score-card" id="p2-final-card">
+          <div class="player-name-final p2" id="p2-name-final">Player 2</div>
+          <div class="player-side-small">AGAINST the proposition</div>
+          <div class="final-total-score" id="p2-score-final" style="color:var(--p2-color);">0.0</div>
+          <div style="font-size:12px; color:var(--text-muted);">/ 100 pts</div>
+          <div class="crown-badge" id="p2-crown" style="display:none;">👑</div>
+        </div>
+      </div>
+
+      <!-- Topic reminder -->
+      <div style="max-width:560px; text-align:center; margin-bottom:40px;">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.12em; color:var(--text-muted); margin-bottom:8px;">Debate Topic</div>
+        <div id="final-topic" style="font-size:16px; font-weight:600; color:var(--text-secondary); line-height:1.5;">—</div>
+      </div>
+
+      <!-- Actions -->
+      <div class="final-actions" style="display:flex; gap:12px; flex-wrap:wrap; justify-content:center;">
+        <button id="reuse-room-btn" class="btn btn-primary" type="button" style="background:linear-gradient(135deg, #3b82f6, #8b5cf6);" aria-label="Start next debate keeping this room code">
+          🔄 Next Debate (Keep Room: <span id="reuse-room-code-label">------</span>)
+        </button>
+        <button id="new-match-btn" class="btn btn-new-match" aria-label="Start fresh match in new room">
+          ➕ Fresh Room
+        </button>
+      </div>
+    </div>
+  </section>
+
+</div><!-- #app -->
+
+<!-- Analyzing overlay (shown during pipeline processing) -->
+<div id="analyzing-overlay" class="analyzing-overlay" role="status" aria-live="polite" aria-label="Analyzing argument">
+  <div class="analyzing-spinner"></div>
+  <div class="analyzing-label">Analyzing Argument...</div>
+  <div class="analyzing-steps">
+    <div class="analyzing-step" id="step-segment">
+      <span class="step-icon">🧩</span> Segmenting claims...
+    </div>
+    <div class="analyzing-step" id="step-embed">
+      <span class="step-icon">🔢</span> Encoding semantics...
+    </div>
+    <div class="analyzing-step" id="step-retrieve">
+      <span class="step-icon">🔍</span> Retrieving opponent points...
+    </div>
+    <div class="analyzing-step" id="step-nli">
+      <span class="step-icon">🔗</span> Running NLI relation analysis...
+    </div>
+    <div class="analyzing-step" id="step-score">
+      <span class="step-icon">📊</span> Computing score...
+    </div>
+    <div class="analyzing-step" id="step-rag">
+      <span class="step-icon">🌐</span> Fact-checking in background...
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container" class="toast-container" aria-live="assertive" aria-atomic="true"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
